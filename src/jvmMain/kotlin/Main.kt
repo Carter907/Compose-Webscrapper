@@ -3,8 +3,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.desktop.ui.tooling.preview.Preview
-import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -20,26 +18,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.application
+import androidx.compose.ui.window.*
 import kotlinx.coroutines.*
-import kotlinx.coroutines.async
 import java.io.BufferedReader
 import java.io.InputStreamReader
-import java.net.HttpURLConnection
 import java.net.URL
-import java.nio.file.FileSystems
-import java.nio.file.Files
-import java.util.concurrent.CompletableFuture
 
 @Composable
-@Preview
 fun App() {
 
     var inputURL by remember { mutableStateOf("") }
-    var outputText by remember { mutableStateOf("") }
-    var loadingAnimation by remember { mutableStateOf(false) }
+    var htmlResult by remember { mutableStateOf("") }
+    var loadingAnimationVisibility by remember { mutableStateOf(false) }
+
     MaterialTheme {
 
         Column(
@@ -48,68 +42,101 @@ fun App() {
             horizontalAlignment = Alignment.CenterHorizontally
 
         ) {
-            OutlinedTextField(
-                label = {
-                    Icon(Icons.Rounded.Search, contentDescription = "search field")
-                },
-                placeholder = {
-                    Text("http....")
-                },
-                value = inputURL,
-                onValueChange = { inputURL = it }
-            )
-            Surface(
-                elevation = 20.dp
-            ) {
-                Text(
-                    outputText, modifier = Modifier
-                        .size(400.dp)
-                        .verticalScroll(
-                            rememberScrollState()
-                        )
-                );
 
-            }
+            SearchTextField(value = inputURL, onValueChanged = { inputURL = it })
 
-            AnimatedVisibility(
-                visible = loadingAnimation,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                val transition = rememberInfiniteTransition()
-                val rotation by transition.animateFloat(
-                    initialValue = 0f,
-                    targetValue = 360f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(1000, easing = LinearEasing),
-                        repeatMode = RepeatMode.Restart
-                    )
-                )
+            HtmlOutputText(text = htmlResult)
 
+            LoadingAnimation(visible = loadingAnimationVisibility)
 
-                Icon(
-                    Icons.Rounded.Refresh,
-                    contentDescription = "loading animation",
-                    modifier = Modifier.rotate(rotation)
-                )
-
-            }
-            Button(onClick = {
-                loadingAnimation = true;
+            SearchButton(onSearch = {
+                loadingAnimationVisibility = true;
                 getHtml(url = inputURL, onHtmlReceived = {
-                    outputText = it;
-                    loadingAnimation = false
+                    htmlResult = it;
+                    loadingAnimationVisibility = false
                 })
-            }) {
-                Text("Scrape Web")
-            }
+
+            })
+
         }
 
     }
+}
 
+@Composable
+fun SearchButton(onSearch: () -> Unit) {
+    Button(onClick = {
+        onSearch.invoke();
+    }) {
+        Text("Scrape Web")
+    }
+}
+
+@Composable
+fun HtmlOutputText(text: String) {
+    Surface(
+        elevation = 20.dp
+    ) {
+        Text(
+            text, modifier = Modifier
+                .size(400.dp)
+                .verticalScroll(
+                    rememberScrollState()
+                )
+        );
+
+    }
+}
+
+@Composable
+fun SearchTextField(value: String, onValueChanged: (String) -> Unit) {
+    OutlinedTextField(
+        value,
+        onValueChanged,
+        label = {
+            Icon(Icons.Rounded.Search, contentDescription = "search field")
+        },
+        placeholder = {
+            Text("http....")
+        },
+    )
+}
+
+
+@Composable
+fun LoadingAnimation(visible: Boolean = false) {
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(),
+        exit = fadeOut()
+    ) {
+        val rotation by rememberInfiniteTransition().animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            )
+        )
+
+        LoadingAnimationIconRotation(rotation)
+    }
+}
+
+@Composable
+fun LoadingAnimationIconRotation(rotation: Float) {
+
+    Icon(
+        Icons.Rounded.Refresh,
+        contentDescription = "loading animation",
+        modifier = Modifier.rotate(rotation)
+    )
 
 }
 
+
+@OptIn(DelicateCoroutinesApi::class)
 fun getHtml(url: String, onHtmlReceived: (String) -> Unit) {
 
     GlobalScope.launch(Dispatchers.IO) {
@@ -124,7 +151,16 @@ fun getHtml(url: String, onHtmlReceived: (String) -> Unit) {
 
 
 fun main() = application {
-    Window(onCloseRequest = ::exitApplication) {
+
+    val icon = painterResource(resourcePath = "icon/scrubify_icon.png");
+
+    Window(
+        icon = icon,
+        title = "Scrubify",
+        state = WindowState(size = DpSize(800.dp, 700.dp)),
+        onCloseRequest = ::exitApplication
+    ) {
         App()
     }
+
 }
